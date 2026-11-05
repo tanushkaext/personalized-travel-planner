@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Itinerary Dashboard - TripTailor</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  {% include 'navbar.html' %}
+
+  <main class="py-4">
+    <div class="container">
+      
+      <!-- Trip Header -->
+      <div class="bg-white p-4 rounded-4 shadow-sm border mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <span class="badge bg-light text-teal border mb-2" id="headerRoute">Loading Route...</span>
+            <h2 class="fw-bold mb-1" id="headerTitle">Personalized Itinerary</h2>
+            <div class="text-muted small" id="headerDetails">Trip Details</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+              <i class="bi bi-printer"></i> Print
+            </button>
+            <button class="btn btn-outline-primary btn-sm" onclick="navigator.clipboard?.writeText(window.location.href); alert('Trip link copied to clipboard!')">
+              <i class="bi bi-share"></i> Share
+            </button>
+            <button class="btn btn-teal btn-sm" data-bs-toggle="modal" data-bs-target="#refineModal">
+              <i class="bi bi-magic"></i> Refine Plan
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Destination Info Bar -->
+      <div class="row g-3 mb-4" id="liveInfoBar">
+
+        <!-- Card 1: Country Info -->
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm rounded-4 p-3 text-center h-100">
+            <div id="countryFlag" style="font-size: 2.2rem;"><i class="bi bi-globe-americas text-teal"></i></div>
+            <small class="text-muted d-block mt-1">Country</small>
+            <strong id="countryName" class="small">Loading...</strong>
+            <span id="countryLanguage" class="badge bg-light text-muted border mt-1 small">Language</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Live Weather -->
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm rounded-4 p-3 text-center h-100">
+            <div id="weatherIcon" style="font-size: 2.2rem;"><i class="bi bi-sun text-warning"></i></div>
+            <small class="text-muted d-block mt-1">Destination Weather</small>
+            <strong id="weatherTemp" class="small text-teal">--°C</strong>
+            <span id="weatherDesc" class="badge bg-light text-muted border mt-1 small">Fetching...</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Currency Rate -->
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm rounded-4 p-3 text-center h-100">
+            <div style="font-size: 2.2rem;"><i class="bi bi-cash-coin text-success"></i></div>
+            <small class="text-muted d-block mt-1">Exchange Rate</small>
+            <strong id="exchangeRate" class="small text-teal">Loading...</strong>
+            <span class="badge bg-light text-muted border mt-1 small">1 USD =</span>
+          </div>
+        </div>
+
+        <!-- Card 4: GPS Coordinates -->
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm rounded-4 p-3 text-center h-100">
+            <div style="font-size: 2.2rem;"><i class="bi bi-geo-alt text-danger"></i></div>
+            <small class="text-muted d-block mt-1">GPS Coordinates</small>
+            <strong id="gpsLat" class="small text-teal">--</strong>
+            <span id="gpsLon" class="badge bg-light text-muted border mt-1 small">--</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Agoda Hotel Search Section -->
+      <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white border">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-teal p-2 rounded-3"><i class="bi bi-building fs-5"></i></span>
+            <div>
+              <h5 class="fw-bold mb-0">Agoda Hotel Availability & Rates</h5>
+              <div class="d-flex align-items-center gap-2 mt-1">
+                <span id="agodaModeBadge" class="badge bg-secondary-subtle text-secondary border">Checking Status...</span>
+                <small class="text-muted" id="agodaTimestamp"></small>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <!-- Sort By Dropdown -->
+            <select class="form-select form-select-sm w-auto rounded-pill" id="agodaSortSelect" onchange="sortAgodaHotels(this.value)">
+              <option value="recommended">Sort: Recommended</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="rating_desc">Rating: High to Low</option>
+            </select>
+
+            <!-- Overnight vs Day-Use Toggle Filter -->
+            <div class="btn-group p-1 bg-light rounded-pill border" role="group">
+              <button type="button" class="btn btn-sm rounded-pill active px-3" id="btnOvernight" onclick="switchStayType('overnight')">
+                <i class="bi bi-moon-stars me-1"></i> Overnight Stay
+              </button>
+              <button type="button" class="btn btn-sm rounded-pill px-3 text-secondary" id="btnDayUse" onclick="switchStayType('day_use')">
+                <i class="bi bi-sun me-1"></i> Day-Use (Transit 6-8h)
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hotels Grid -->
+        <div class="row g-3" id="agodaHotelsContainer">
+          <div class="text-center py-4">
+            <div class="spinner-border text-teal spinner-border-sm" role="status"></div>
+            <span class="ms-2 text-muted small">Loading hotel availability...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hotel Details Modal -->
+      <div class="modal fade" id="hotelDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+          <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title fw-bold" id="modalHotelName">Hotel Details</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <p class="text-muted small" id="modalHotelDesc">Loading description...</p>
+              <h6 class="fw-bold mb-2">Property Amenities</h6>
+              <div id="modalHotelAmenities" class="d-flex flex-wrap gap-1 mb-3"></div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-secondary rounded-pill btn-sm px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Schedule & Tabs Section -->
+      <div class="row g-4">
+        <div class="col-lg-8">
+          
+          <div class="bg-white p-4 rounded-4 shadow-sm border mb-4">
+            <!-- Day Selection Tabs -->
+            <ul class="nav nav-pills gap-2 mb-4" id="dayTabs"></ul>
+
+            <!-- Active Day Summary Card -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h5 class="fw-bold mb-0" id="currentDayTitle">Day 1 Overview</h5>
+                <small class="text-muted" id="currentDayDate">Date</small>
+              </div>
+              <div class="d-flex gap-3 text-end">
+                <div>
+                  <small class="text-muted d-block">Est. Cost</small>
+                  <strong class="text-teal" id="statCost">₹0</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Walking</small>
+                  <strong id="statWalking">0 km</strong>
+                </div>
+                <div>
+                  <small class="text-muted d-block">Transit</small>
+                  <strong id="statTransit">0 mins</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activities Timeline -->
+            <div class="timeline" id="timelineContainer"></div>
+          </div>
+
+        </div>
+
+        <!-- Sidebar: Cost Breakdown & Map -->
+        <div class="col-lg-4">
+          
+          <!-- Cost Breakdown Card -->
+          <div class="bg-white p-4 rounded-4 shadow-sm border mb-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-wallet2 text-teal me-1"></i> Cost Breakdown</h5>
+            <div id="budgetStatusBanner" class="alert alert-success py-2 px-3 small rounded-3 mb-3">
+              <i class="bi bi-check-circle-fill me-1"></i> Trip is within estimated budget.
+            </div>
+            <ul class="list-unstyled mb-3 small" id="costBreakdownList">
+              <li class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-muted"><i class="bi bi-building me-1"></i> Accommodation</span>
+                <strong id="costAccommodation">₹0</strong>
+              </li>
+              <li class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-muted"><i class="bi bi-cup-hot me-1"></i> Food & Dining</span>
+                <strong id="costFood">₹0</strong>
+              </li>
+              <li class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-muted"><i class="bi bi-car-front me-1"></i> Local Transport</span>
+                <strong id="costTransport">₹0</strong>
+              </li>
+              <li class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-muted"><i class="bi bi-ticket-perforated me-1"></i> Sightseeing & Activities</span>
+                <strong id="costActivities">₹0</strong>
+              </li>
+              <li class="d-flex justify-content-between py-2 border-bottom">
+                <span class="text-muted"><i class="bi bi-shield-check me-1"></i> 10% Contingency</span>
+                <strong id="costContingency">₹0</strong>
+              </li>
+              <li class="d-flex justify-content-between pt-3 fs-6">
+                <span class="fw-bold">Total Estimated Cost</span>
+                <strong class="text-teal fw-bold fs-5" id="costTotal">₹0</strong>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Locations Map Preview -->
+          <div class="bg-white p-4 rounded-4 shadow-sm border text-center">
+            <div class="text-teal fs-1 mb-2"><i class="bi bi-map"></i></div>
+            <h6 class="fw-bold mb-1">Destination Map</h6>
+            <p class="text-muted small px-3 mb-3">Interactive geographic map route for your daily itinerary stops.</p>
+            <a id="externalMapLink" href="https://www.google.com/maps" target="_blank" rel="noopener noreferrer" class="btn btn-outline-teal btn-sm rounded-pill px-3">
+              <i class="bi bi-box-arrow-up-right me-1"></i> Open in Maps
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- AI Refine Modal -->
+  <div class="modal fade" id="refineModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow rounded-4">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold"><i class="bi bi-stars text-teal"></i> Refine My Trip</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">Quickly adjust your itinerary pacing, budget, or activities.</p>
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="applyQuickPrompt('Make it cheaper')">Make it cheaper</button>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="applyQuickPrompt('Reduce walking')">Reduce walking</button>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="applyQuickPrompt('Add more local street food')">More street food</button>
+            <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="applyQuickPrompt('Make it more relaxed')">More relaxed</button>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Custom Instruction</label>
+            <input type="text" id="refineInput" class="form-control" placeholder="e.g. Add an evening visit to the beach or market">
+          </div>
+          <button type="button" class="btn btn-teal w-100 rounded-pill" onclick="submitRefine()">Update Itinerary</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'footer.html' %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/static/script.js"></script>
+<script>
+  let currentTrip = null;
+  let activeDayIndex = 0;
+  let agodaHotelList = [];
+  let currentStayType = 'overnight';
+
+  const urlParts = window.location.pathname.split('/');
+  const tripId = urlParts[urlParts.length - 1] || '1';
+
+  const categoryIcons = {
+    food: 'bi-cup-hot',
+    attraction: 'bi-geo-alt',
+    activity: 'bi-camera',
+    transport: 'bi-car-front',
+    hotel: 'bi-building'
+  };
+
+  // 1. Detect Country for Live Data
+  function detectCountry(destination) {
+    const d = (destination || '').toLowerCase();
+    const map = [
+      { hint: 'India', keys: ['india', 'delhi', 'mumbai', 'jaipur', 'goa', 'kota', 'udaipur', 'jodhpur', 'agra', 'kerala', 'bangalore', 'bengaluru', 'kolkata', 'chennai', 'hyderabad', 'pune', 'ahmedabad', 'shimla', 'manali', 'amritsar', 'rishikesh', 'ladakh', 'kashmir', 'varanasi'] },
+      { hint: 'Japan', keys: ['japan', 'tokyo', 'kyoto', 'osaka', 'hokkaido', 'hiroshima'] },
+      { hint: 'France', keys: ['france', 'paris', 'lyon', 'marseille', 'nice'] },
+      { hint: 'Italy', keys: ['italy', 'rome', 'florence', 'venice', 'milan'] },
+      { hint: 'United Kingdom', keys: ['uk', 'london', 'edinburgh', 'manchester'] },
+      { hint: 'United Arab Emirates', keys: ['dubai', 'uae', 'abu dhabi', 'sharjah'] },
+      { hint: 'United States', keys: ['usa', 'new york', 'los angeles', 'chicago', 'miami', 'las vegas'] },
+      { hint: 'Thailand', keys: ['thailand', 'bangkok', 'phuket', 'chiang mai'] }
+    ];
+    for (const entry of map) {
+      if (entry.keys.some(k => d.includes(k))) {
+        return { country: entry.hint, searchQuery: `${destination}, ${entry.hint}` };
+      }
+    }
+    return { country: destination, searchQuery: destination };
+  }
+
+  // 2. Load Trip From Backend
+  async function loadTripDetails() {
+    try {
+      const res = await fetch(`/api/trips/${tripId}`);
+      if (!res.ok) throw new Error('Trip not found');
+      currentTrip = await res.json();
+
+      if (currentTrip) {
+        renderTripHeader();
+        renderCostBreakdown();
+        renderDayTabs();
+        renderActiveDay();
+
+        const { country, searchQuery } = detectCountry(currentTrip.destination);
+        loadAllLiveData(currentTrip.destination, currentTrip.currency_symbol || '₹', searchQuery, country);
+        fetchAgodaHotels(currentStayType);
+      }
+    } catch (err) {
+      document.getElementById('headerTitle').innerText = 'Could not load trip.';
+      document.getElementById('headerDetails').innerText = err.message;
+    }
+  }
+
+  function renderTripHeader() {
+    document.getElementById('headerTitle').innerText = currentTrip.title || `Trip to ${currentTrip.destination}`;
+    document.getElementById('headerRoute').innerText = currentTrip.route_summary || currentTrip.destination;
+    document.getElementById('headerDetails').innerHTML = `
+      <strong>${currentTrip.travelers_count || 1} Travelers</strong> &bull;
+      <span class="text-capitalize">${currentTrip.budget_tier || 'Moderate'} Budget</span> &bull;
+      <span class="text-capitalize">${currentTrip.pace || 'Balanced'} Pace</span>`;
+  }
+
+    function renderCostBreakdown() {
+    const sym = currentTrip.currency_symbol || '₹';
+    const b = currentTrip.budget_breakdown || {};
+    const summary = currentTrip.budget_summary || {};
+
+    // 1. Safely extract numbers from objects (Eliminates [object Object])
+    const accom = typeof b.accommodation === 'object' ? (b.accommodation.total || 0) : (Number(b.accommodation) || 2800);
+    const food = typeof b.food_and_dining === 'object' ? (b.food_and_dining.total || 0) : (typeof b.food === 'object' ? (b.food.total || 0) : (Number(b.food) || 2400));
+    const transit = typeof b.local_transport === 'object' ? (b.local_transport.total || 0) : (typeof b.transport === 'object' ? (b.transport.total || 0) : (Number(b.transport) || 1200));
+    const activities = typeof b.attractions === 'object' ? (b.attractions.total || 0) : (typeof b.activities === 'object' ? (b.activities.total || 0) : (Number(b.activities) || 800));
+    const contingency = typeof b.contingency === 'object' ? (b.contingency.total || 0) : (Number(b.contingency) || Math.round((accom + food + transit + activities) * 0.10));
+
+    const total = summary.total_trip_cost || (accom + food + transit + activities + contingency);
+    const userBudget = summary.user_total_budget || currentTrip.estimated_budget;
+
+    // 2. Render itemized amounts cleanly
+    document.getElementById('costAccommodation').innerText = `${sym}${Math.round(accom).toLocaleString()}`;
+    document.getElementById('costFood').innerText = `${sym}${Math.round(food).toLocaleString()}`;
+    document.getElementById('costTransport').innerText = `${sym}${Math.round(transit).toLocaleString()}`;
+    document.getElementById('costActivities').innerText = `${sym}${Math.round(activities).toLocaleString()}`;
+    document.getElementById('costContingency').innerText = `${sym}${Math.round(contingency).toLocaleString()}`;
+    document.getElementById('costTotal').innerText = `${sym}${Math.round(total).toLocaleString()}`;
+
+    // 3. Dynamic Budget Comparison Banner (Exceeds vs. Within Budget)
+    const banner = document.getElementById('budgetStatusBanner');
+    if (banner) {
+      if (userBudget) {
+        const diff = Math.round(userBudget - total);
+        if (diff >= 0) {
+          banner.className = 'alert alert-success py-2 px-3 small rounded-3 mb-3 border-0 shadow-sm';
+          banner.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i> <strong>Within Budget!</strong> Your Budget: <strong>${sym}${Number(userBudget).toLocaleString()}</strong>. Surplus buffer: <strong>${sym}${diff.toLocaleString()}</strong>.`;
+        } else {
+          const excess = Math.abs(diff);
+          banner.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3 border-0 shadow-sm';
+          banner.innerHTML = `
+            <div>
+              <i class="bi bi-exclamation-triangle-fill me-1 text-danger"></i> <strong>Exceeds Your Budget by ${sym}${excess.toLocaleString()}</strong>
+              <div class="mt-1 text-secondary" style="font-size: 0.78rem;">Your Budget: ${sym}${Number(userBudget).toLocaleString()} &bull; Baseline Cost: ${sym}${Math.round(total).toLocaleString()}</div>
+              <button class="btn btn-sm btn-outline-danger rounded-pill mt-2 py-1 px-3 fw-semibold" style="font-size: 0.75rem;" onclick="applyQuickPrompt('Make it cheaper')">
+                <i class="bi bi-scissors"></i> TravelCraft: Auto-Tailor Trip to ₹${Number(userBudget).toLocaleString()}
+              </button>
+            </div>
+          `;
+        }
+      } else {
+        banner.className = 'alert alert-info py-2 px-3 small rounded-3 mb-3 border-0 shadow-sm';
+        banner.innerHTML = `<i class="bi bi-info-circle-fill me-1"></i> Estimated total for ${currentTrip.travelers_count || 2} travellers.`;
+      }
+    }
+  }
+
+  function renderDayTabs() {
+    const tabs = document.getElementById('dayTabs');
+    if (!currentTrip.days?.length) return;
+    tabs.innerHTML = currentTrip.days.map((d, i) => `
+      <li class="nav-item">
+        <button class="nav-link rounded-pill px-4 ${i === activeDayIndex ? 'active bg-teal' : 'text-secondary bg-white border'}"
+          onclick="selectDay(${i})">Day ${d.day_number}</button>
+      </li>`).join('');
+  }
+
+  function selectDay(index) {
+    activeDayIndex = index;
+    renderDayTabs();
+    renderActiveDay();
+  }
+
+  function renderActiveDay() {
+    const day = currentTrip.days[activeDayIndex];
+    const sym = currentTrip.currency_symbol || '₹';
+    if (!day) return;
+
+    document.getElementById('currentDayTitle').innerText = day.summary || `Day ${day.day_number}`;
+    document.getElementById('currentDayDate').innerText = day.date || '';
+    document.getElementById('statCost').innerText = `${sym}${Number(day.total_cost || 0).toLocaleString()}`;
+    document.getElementById('statWalking').innerText = `${day.walking_distance_km || '3.5'} km`;
+    document.getElementById('statTransit').innerText = `${day.travel_time_minutes || '45'} mins`;
+
+    const container = document.getElementById('timelineContainer');
+    if (!day.activities?.length) {
+      container.innerHTML = `<p class="text-muted py-3">No activities scheduled for this day.</p>`;
+      return;
+    }
+
+    container.innerHTML = day.activities.map(act => {
+      const icon = categoryIcons[act.category] || 'bi-geo-alt';
+      return `
+        <div class="timeline-item mb-3">
+          <div class="card border-0 shadow-sm rounded-4 p-3 bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="badge bg-white text-teal border px-2 py-1"><i class="bi ${icon} me-1"></i>${act.time_slot}</span>
+              <small class="text-muted fw-semibold">${act.distance_from_prev_km || 1.2} km away</small>
+            </div>
+            <h6 class="fw-bold mb-1 mt-2">${act.title}</h6>
+            <p class="text-muted small mb-2">${act.description || ''}</p>
+            <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+              <span class="small text-secondary"><i class="bi bi-geo-alt"></i> ${act.location_name}</span>
+              <span class="badge bg-white text-dark border">
+                ${sym}${Number(act.estimated_cost || 0).toLocaleString()} &bull; ${act.duration_minutes || 60} mins
+              </span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // 3. Live Agoda Hotel Search Integration
+  async function fetchAgodaHotels(stayType = 'overnight') {
+    currentStayType = stayType;
+    const container = document.getElementById('agodaHotelsContainer');
+    if (!container || !currentTrip) return;
+
+    const dest = currentTrip.destination || 'Mumbai';
+    const start = currentTrip.start_date || new Date().toISOString().split('T')[0];
+    const end = currentTrip.end_date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const travelers = currentTrip.travelers_count || 2;
+    const rooms = Math.ceil(travelers / 2);
+    const curr = (currentTrip.currency_symbol === '₹') ? 'INR' : 'USD';
+
+    container.innerHTML = `
+      <div class="col-12 text-center py-4">
+        <div class="spinner-border text-teal spinner-border-sm" role="status"></div>
+        <span class="ms-2 text-muted small">Searching ${stayType === 'day_use' ? 'Day-Use' : 'Overnight'} stays in ${dest}...</span>
+      </div>
+    `;
+
+    try {
+      const res = await fetch(`/api/hotels/search?destination=${encodeURIComponent(dest)}&check_in=${start}&check_out=${end}&adults=${travelers}&rooms=${rooms}&stay_type=${stayType}&currency=${curr}`);
+      const data = await res.json();
+      agodaHotelList = data.hotels || [];
+
+      // Update Mode Badge & Timestamp
+      const modeBadge = document.getElementById('agodaModeBadge');
+      if (modeBadge) {
+        if (data.is_live_data) {
+          modeBadge.className = 'badge bg-success-subtle text-success border';
+          modeBadge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Live Agoda API Data';
+        } else {
+          modeBadge.className = 'badge bg-warning-subtle text-dark border';
+          modeBadge.innerHTML = '<i class="bi bi-info-circle-fill me-1"></i> Demo Mode (Offline / API Quota)';
+        }
+      }
+      const timeElem = document.getElementById('agodaTimestamp');
+      if (timeElem && data.retrieved_at) {
+        timeElem.innerText = `Retrieved: ${data.retrieved_at}`;
+      }
+
+      renderAgodaHotels(agodaHotelList);
+    } catch (err) {
+      container.innerHTML = `<div class="col-12 text-center text-muted py-3">Could not load hotels: ${err.message}</div>`;
+    }
+  }
+
+  function renderAgodaHotels(hotels) {
+    const container = document.getElementById('agodaHotelsContainer');
+    if (!container) return;
+    if (!hotels || hotels.length === 0) {
+      container.innerHTML = `<div class="col-12 text-center text-muted py-3">No hotels found.</div>`;
+      return;
+    }
+
+    const sym = currentTrip?.currency_symbol || '₹';
+    container.innerHTML = hotels.map(h => `
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
+          <div style="height: 180px; overflow: hidden; position: relative;">
+            <img src="${h.image}" class="w-100 h-100" style="object-fit: cover;" alt="${h.name}">
+            <span class="badge bg-dark bg-opacity-75 position-absolute top-0 start-0 m-2 rounded-pill px-2 py-1">
+              <i class="bi bi-star-fill text-warning me-1"></i>${h.rating} (${h.reviews_count || 'Verified'})
+            </span>
+            <span class="badge bg-teal position-absolute top-0 end-0 m-2 rounded-pill px-2 py-1">
+              ${h.stay_type}
+            </span>
+          </div>
+          <div class="card-body p-3 d-flex flex-column justify-content-between">
+            <div>
+              <h6 class="fw-bold mb-1 text-truncate">${h.name}</h6>
+              <p class="text-muted small mb-2 text-truncate"><i class="bi bi-geo-alt"></i> ${h.address}</p>
+            </div>
+            <div>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-teal fw-bold fs-5">${sym}${Number(h.price_per_night).toLocaleString()}</span>
+                <small class="text-muted">/ night</small>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm flex-grow-1 rounded-pill" onclick="openAgodaDetails('${h.property_id}')">
+                  Details
+                </button>
+                <a href="${h.booking_url}" target="_blank" rel="noopener noreferrer" class="btn btn-teal btn-sm flex-grow-1 rounded-pill">
+                  Book <i class="bi bi-box-arrow-up-right ms-1"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function sortAgodaHotels(criteria) {
+    let sorted = [...agodaHotelList];
+    if (criteria === 'price_asc') sorted.sort((a, b) => a.price_per_night - b.price_per_night);
+    else if (criteria === 'price_desc') sorted.sort((a, b) => b.price_per_night - a.price_per_night);
+    else if (criteria === 'rating_desc') sorted.sort((a, b) => b.rating - a.rating);
+    renderAgodaHotels(sorted);
+  }
+
+  function switchStayType(type) {
+    const btnOvernight = document.getElementById('btnOvernight');
+    const btnDayUse = document.getElementById('btnDayUse');
+    if (type === 'day_use') {
+      btnDayUse.className = 'btn btn-sm rounded-pill active px-3';
+      btnOvernight.className = 'btn btn-sm rounded-pill px-3 text-secondary';
+    } else {
+      btnOvernight.className = 'btn btn-sm rounded-pill active px-3';
+      btnDayUse.className = 'btn btn-sm rounded-pill px-3 text-secondary';
+    }
+    fetchAgodaHotels(type);
+  }
+
+  async function openAgodaDetails(propertyId) {
+    try {
+      const res = await fetch(`/api/hotels/${propertyId}/details`);
+      const d = await res.json();
+      document.getElementById('modalHotelName').innerText = d.name;
+      document.getElementById('modalHotelDesc').innerText = d.description;
+      const amenContainer = document.getElementById('modalHotelAmenities');
+      if (amenContainer) {
+        amenContainer.innerHTML = (d.amenities || []).map(a => `<span class="badge bg-light text-secondary border me-1 mb-1">${a}</span>`).join('');
+      }
+      const modal = new bootstrap.Modal(document.getElementById('hotelDetailsModal'));
+      modal.show();
+    } catch (e) {
+      alert('Could not load hotel details: ' + e.message);
+    }
+  }
+
+  // 4. Live Destination Info Fetchers
+  async function loadCountryInfo(country) {
+    const languageMap = {
+      'india': 'Hindi & Regional', 'japan': 'Japanese', 'france': 'French',
+      'italy': 'Italian', 'united kingdom': 'English', 'united arab emirates': 'Arabic',
+      'united states': 'English', 'thailand': 'Thai'
+    };
+    const cLower = (country || '').toLowerCase();
+    document.getElementById('countryName').innerText = country;
+    document.getElementById('countryLanguage').innerText = languageMap[cLower] || 'Local Language';
+  }
+
+  async function loadGPSCoordinates(searchQuery) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=1`, {
+        headers: { 'Accept-Language': 'en', 'User-Agent': 'TripTailor/1.0' }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat).toFixed(4);
+        const lon = parseFloat(data[0].lon).toFixed(4);
+        document.getElementById('gpsLat').innerText = `Lat: ${lat}`;
+        document.getElementById('gpsLon').innerText = `Lon: ${lon}`;
+        loadLiveWeather(lat, lon);
+      }
+    } catch (e) {
+      document.getElementById('gpsLat').innerText = 'Unavailable';
+    }
+  }
+
+  async function loadLiveWeather(lat, lon) {
+    try {
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+      const data = await res.json();
+      const w = data.current_weather;
+      document.getElementById('weatherTemp').innerText = `${w.temperature}°C`;
+      document.getElementById('weatherDesc').innerText = w.windspeed < 20 ? 'Mild Winds' : 'Breezy';
+    } catch {
+      document.getElementById('weatherDesc').innerText = 'Unavailable';
+    }
+  }
+
+  async function loadExchangeRate(currencyCode) {
+    if (currencyCode === 'USD') {
+      document.getElementById('exchangeRate').innerText = '1.00 USD';
+      return;
+    }
+    try {
+      const res = await fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json');
+      const data = await res.json();
+      const rate = data['usd'][(currencyCode || 'inr').toLowerCase()];
+      document.getElementById('exchangeRate').innerText = rate ? `${Number(rate).toLocaleString('en-IN', { maximumFractionDigits: 2 })} ${currencyCode}` : 'N/A';
+    } catch {
+      document.getElementById('exchangeRate').innerText = 'Unavailable';
+    }
+  }
+
+    function loadAllLiveData(destination, currencySymbol, searchQuery, country) {
+    const codeMap = { '₹': 'INR', '€': 'EUR', '£': 'GBP', '¥': 'JPY', 'AED': 'AED', '$': 'USD' };
+    const code = codeMap[currencySymbol] || 'INR';
+    loadCountryInfo(country);
+    loadGPSCoordinates(searchQuery);
+    loadExchangeRate(code);
+  }
+
+  function applyQuickPrompt(p) {
+    document.getElementById('refineInput').value = p;
+  }
+
+  function submitRefine() {
+    const val = document.getElementById('refineInput').value;
+    if (!val) return;
+    bootstrap.Modal.getInstance(document.getElementById('refineModal')).hide();
+    alert(`Itinerary refined with: "${val}"`);
+  }
+
+  document.addEventListener('DOMContentLoaded', loadTripDetails);
+
+    // LOAD TRIP FROM BACKEND OR SESSION
+  async function loadTripDetails() {
+    try {
+      // 1. Check if a newly crafted trip exists in session storage
+      const savedPlan = sessionStorage.getItem('currentTripPlan');
+      if (savedPlan) {
+        currentTrip = JSON.parse(savedPlan);
+        sessionStorage.removeItem('currentTripPlan');
+      } else {
+        // 2. Otherwise fetch from backend API
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryDest = urlParams.get('dest');
+        const queryStart = urlParams.get('start');
+        const queryEnd = urlParams.get('end');
+        const queryTravelers = urlParams.get('travelers');
+
+        const apiUrl = queryDest 
+          ? `/api/trips/${tripId}?dest=${encodeURIComponent(queryDest)}&start=${queryStart || ''}&end=${queryEnd || ''}&travelers=${queryTravelers || 2}`
+          : `/api/trips/${tripId}`;
+
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('Trip not found');
+        currentTrip = await res.json();
+      }
+
+      if (currentTrip) {
+        renderTripHeader();
+        renderCostBreakdown();
+        renderDayTabs();
+        renderActiveDay();
+
+        const { country, searchQuery } = detectCountry(currentTrip.destination);
+        loadAllLiveData(currentTrip.destination, currentTrip.currency_symbol || '₹', searchQuery, country);
+        fetchAgodaHotels(currentStayType);
+      }
+    } catch (err) {
+      document.getElementById('headerTitle').innerText = 'Could not load trip.';
+      document.getElementById('headerDetails').innerText = err.message;
+    }
+  }
+</script>
+</body>
+</html>

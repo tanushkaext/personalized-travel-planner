@@ -1,0 +1,121 @@
+:root {
+  --teal-primary: #0d9488;
+  --teal-hover: #0f766e;
+  --teal-soft: #ccfbf1;
+  --bg-soft: #299d9d;
+}
+
+body {
+  background-color: var(--bg-soft);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+/* Primary Color Utilities */
+.text-teal { color: var(--teal-primary) !important; }
+.bg-teal { background-color: var(--teal-primary) !important; color: #ffffff !important; }
+
+.btn-teal {
+  background-color: var(--teal-primary);
+  border-color: var(--teal-primary);
+  color: #ffffff;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-teal:hover {
+  background-color: var(--teal-hover);
+  border-color: var(--teal-hover);
+  color: #ffffff;
+}
+
+.btn-outline-teal {
+  color: var(--teal-primary);
+  border-color: var(--teal-primary);
+}
+
+.btn-outline-teal:hover {
+  background-color: var(--teal-primary);
+  color: #ffffff;
+}
+
+/* Interactive Chips for Interests */
+.chip {
+  cursor: pointer;
+  padding: 0.45rem 1rem;
+  border-radius: 50rem;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 0.875rem;
+  user-select: none;
+  transition: all 0.2s ease;
+  display: inline-block;
+}
+
+.chip:hover {
+  border-color: var(--teal-primary);
+}
+
+.chip.active {
+  background-color: var(--teal-soft);
+  border-color: var(--teal-primary);
+  color: var(--teal-hover);
+  font-weight: 600;
+}
+
+/* Itinerary Timeline */
+.timeline {
+  position: relative;
+  padding-left: 2.2rem;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  bottom: 10px;
+  left: 15px;
+  width: 2px;
+  background-color: #e2e8f0;
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.timeline-badge {
+  position: absolute;
+  left: -2.2rem;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: var(--teal-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  box-shadow: 0 0 0 4px #ffffff;
+}
+
+/* Skeleton loader for hotel name while searching */
+.placeholder {
+  display: inline-block;
+  min-height: 1em;
+  background-color: #dee2e6;
+  opacity: 0.5;
+  border-radius: 4px;
+  animation: placeholder-glow 2s ease-in-out infinite;
+}
+@keyframes placeholder-glow {
+  50% { opacity: 0.2; }
+}
